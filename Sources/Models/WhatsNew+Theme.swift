@@ -10,7 +10,7 @@ public extension WhatsNew {
         }
 
         public var backgroundColor: Color
-        public var titleColor: Color
+        public var titleColor: Color?
         public var featureTitleColor: Color
         public var featureSubtitleColor: Color
         public var cardBackgroundColor: Color
@@ -20,7 +20,7 @@ public extension WhatsNew {
 
         public init(
             backgroundColor: Color = .clear,
-            titleColor: Color = .primary,
+            titleColor: Color? = nil,
             featureTitleColor: Color = .primary,
             featureSubtitleColor: Color = .secondary,
             cardBackgroundColor: Color = Color.primary.opacity(0.06),
