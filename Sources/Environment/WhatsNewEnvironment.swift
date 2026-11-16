@@ -80,6 +80,22 @@ open class WhatsNewEnvironment {
         )
     }
     
+    // MARK: Release history
+
+    /// All releases up to the installed app version, newest first.
+    /// Reading this catalogue never changes acknowledgement state.
+    public var releaseHistory: WhatsNewCollection {
+        whatsNewCollection
+            .filter { $0.version <= currentVersion }
+            .sorted { $0.version > $1.version }
+    }
+
+    /// Retrieves a release for manual viewing, including acknowledged releases.
+    /// Future releases are intentionally excluded.
+    public func release(for version: WhatsNew.Version) -> WhatsNew? {
+        releaseHistory.first { $0.version == version }
+    }
+
     // MARK: WhatsNew
 
     /// Returns the latest eligible release up to the installed app version.
