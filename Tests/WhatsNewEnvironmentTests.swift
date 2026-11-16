@@ -154,4 +154,39 @@ final class WhatsNewEnvironmentTests: WhatsNewKitTestCase {
         XCTAssertNil(environment.whatsNew())
     }
 
+    func testHistoryIsNewestFirstAndExcludesFuture() {
+        let store = InMemoryWhatsNewVersionStore()
+        store.save(presentedVersion: "2026.11")
+        let environment = WhatsNewEnvironment(
+            currentVersion: "2027.01",
+            versionStore: store,
+            whatsNewCollection: [
+                makeWhatsNew(from: "2026.10"),
+                makeWhatsNew(from: "2027.02"),
+                makeWhatsNew(from: "2027.01"),
+                makeWhatsNew(from: "2026.11")
+            ]
+        )
+        XCTAssertEqual(
+            environment.releaseHistory.map(\.version),
+            ["2027.01", "2026.11", "2026.10"]
+        )
+    }
+
+    func testReviewingHistoryDoesNotAcknowledgeReleases() {
+        let store = InMemoryWhatsNewVersionStore()
+        let environment = WhatsNewEnvironment(
+            currentVersion: "2027.01",
+            versionStore: store,
+            whatsNewCollection: [
+                makeWhatsNew(from: "2026.11"),
+                makeWhatsNew(from: "2027.01")
+            ]
+        )
+        XCTAssertNotNil(environment.release(for: "2026.11"))
+        XCTAssertNil(environment.release(for: "2027.02"))
+        XCTAssertTrue(store.presentedVersions.isEmpty)
+        XCTAssertEqual(environment.whatsNew()?.version, "2027.01")
+    }
+
 }
