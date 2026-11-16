@@ -2,6 +2,7 @@ import SwiftUI
 
 /// A read-only catalogue of releases up to the installed application version.
 /// Opening an archived release does not mark it as acknowledged.
+@available(iOS 14.0, macOS 11.0, visionOS 1.0, *)
 public struct WhatsNewReleaseHistoryView: View {
     private let environment: WhatsNewEnvironment
 
