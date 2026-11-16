@@ -3,6 +3,7 @@ import SwiftUI
 
 // MARK: - ScrollView+alwaysBounceVertical
 
+@MainActor
 extension ScrollView {
     
     /// Resolve the underlying `UIScrollView` to update the `alwaysBounceVertical` attribute which is
@@ -38,7 +39,7 @@ private struct ViewControllerResolver: UIViewControllerRepresentable {
     // MARK: Typealias
     
     /// A typealias represents a UIViewController resolver closure
-    typealias Resolver = (UIViewController) -> Void
+    typealias Resolver = @MainActor (UIViewController) -> Void
     
     // MARK: Properties
     
