@@ -65,4 +65,38 @@ final class WhatsNewNamespacedStoreTests: XCTestCase {
         freya.removeAll()
         XCTAssertNotNil(defaults.object(forKey: "WhatsNewKit.Other.1.2.3"))
     }
+    func testDefaultStoreDoesNotReadOrRemoveNamespacedVersions() {
+        let defaults = isolatedDefaults()
+        let legacy = UserDefaultsWhatsNewVersionStore(userDefaults: defaults)
+        let scoped = UserDefaultsWhatsNewVersionStore(
+            userDefaults: defaults, namespace: "Freya"
+        )
+        legacy.save(presentedVersion: "1.0.0")
+        scoped.save(presentedVersion: "2.0.0")
+        XCTAssertEqual(legacy.presentedVersions, ["1.0.0"])
+        legacy.removeAll()
+        XCTAssertEqual(scoped.presentedVersions, ["2.0.0"])
+    }
+
+    func testMigrationIsOptInAndDoesNotOverwriteExistingNamespace() {
+        let defaults = isolatedDefaults()
+        let legacy = UserDefaultsWhatsNewVersionStore(userDefaults: defaults)
+        legacy.save(presentedVersion: "1.2.3")
+
+        let isolated = UserDefaultsWhatsNewVersionStore(
+            userDefaults: defaults, namespace: "Freya"
+        )
+        XCTAssertTrue(isolated.presentedVersions.isEmpty)
+
+        let migrated = UserDefaultsWhatsNewVersionStore(
+            userDefaults: defaults,
+            namespace: "Freya",
+            migrateLegacy: true
+        )
+        XCTAssertEqual(migrated.presentedVersions, ["1.2.3"])
+        migrated.removeAll()
+        XCTAssertTrue(isolated.presentedVersions.isEmpty)
+        XCTAssertEqual(legacy.presentedVersions, ["1.2.3"])
+    }
+
 }
