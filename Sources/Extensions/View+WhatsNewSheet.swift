@@ -1,22 +1,19 @@
 import SwiftUI
 
-// MARK: - View+sheet(whatsNew:)
+// MARK: - Manual presentation
 
 public extension View {
 
-    /// Presents a WhatsNewView using the given WhatsNew object as a data source for the sheet’s content.
-    /// - Parameters:
-    ///   - whatsNew: A Binding to an optional WhatsNew object
-    ///   - versionStore: The optional WhatsNewVersionStore. Default value `nil`
-    ///   - layout: The WhatsNew Layout. Default value `.default`
-    ///   - onDismiss: The closure to execute when dismissing the sheet. Default value `nil`
+    /// Presents a What's New sheet for a manually supplied release.
+    /// When a version store is provided, already-acknowledged releases are skipped.
+    /// The caller owns the binding and may set a new release to present it again.
     func sheet(
         whatsNew: Binding<WhatsNew?>,
         versionStore: WhatsNewVersionStore? = nil,
         layout: WhatsNew.Layout = .default,
         onDismiss: (() -> Void)? = nil
     ) -> some View {
-        self.modifier(
+        modifier(
             ManualWhatsNewSheetViewModifier(
                 whatsNew: whatsNew,
                 versionStore: versionStore,
@@ -25,131 +22,84 @@ public extension View {
             )
         )
     }
-    
 }
 
-// MARK: - ManualWhatsNewSheetViewModifier
-
-/// A Manual WhatsNew Sheet ViewModifier
 private struct ManualWhatsNewSheetViewModifier: ViewModifier {
-    
-    // MARK: Properties
-    
-    /// A Binding to an optional WhatsNew object
     let whatsNew: Binding<WhatsNew?>
-    
-    /// The optional WhatsNewVersionStore
     let versionStore: WhatsNewVersionStore?
-    
-    /// The WhatsNew Layout
     let layout: WhatsNew.Layout
-    
-    /// The closure to execute when dismissing the sheet
     let onDismiss: (() -> Void)?
-    
-    // MARK: ViewModifier
-    
-    /// Gets the current body of the caller.
-    /// - Parameter content: The Content
-    func body(
-        content: Content
-    ) -> some View {
-        // Check if a WhatsNew object is available
-        if let whatsNew = self.whatsNew.wrappedValue {
-            // Check if the WhatsNew Version has already been presented
-            if self.versionStore?.hasPresented(whatsNew.version) == true {
-                // Show content
-                content
-            } else {
-                // Show WhatsNew Sheet
-                content.sheet(
-                    item: self.whatsNew,
-                    onDismiss: self.onDismiss
-                ) { whatsNew in
-                    WhatsNewView(
-                        whatsNew: whatsNew,
-                        versionStore: self.versionStore,
-                        layout: self.layout
-                    )
+
+    /// Keep the same sheet modifier installed even when no release is eligible.
+    /// This avoids replacing the host view when the version store changes.
+    private var eligibleRelease: Binding<WhatsNew?> {
+        Binding(
+            get: {
+                guard let release = whatsNew.wrappedValue,
+                      versionStore?.hasPresented(release.version) != true else {
+                    return nil
                 }
-            }
-        } else {
-            // Otherwise show content
-            content
+                return release
+            },
+            set: { whatsNew.wrappedValue = $0 }
+        )
+    }
+
+    func body(content: Content) -> some View {
+        content.sheet(
+            item: eligibleRelease,
+            onDismiss: onDismiss
+        ) { release in
+            WhatsNewView(
+                whatsNew: release,
+                versionStore: versionStore,
+                layout: layout
+            )
         }
     }
-    
 }
 
-// MARK: - View+whatsNewSheet()
+// MARK: - Automatic presentation
 
 public extension View {
-    
-    /// Auto-Presents a WhatsNewView to the user if needed based on the `WhatsNewEnvironment`
-    /// - Parameters:
-    ///   - layout: The optional custom WhatsNew Layout. Default value `nil`
-    ///   - onDismiss: The closure to execute when dismissing the sheet. Default value `nil`
+
+    /// Automatically presents the latest eligible release once per view lifetime.
+    /// Swipe-dismissed releases remain unacknowledged and are eligible on a later
+    /// app launch. The Continue button in WhatsNewView records acknowledgement.
     func whatsNewSheet(
         layout: WhatsNew.Layout? = nil,
         onDismiss: (() -> Void)? = nil
     ) -> some View {
-        self.modifier(
+        modifier(
             AutomaticWhatsNewSheetViewModifier(
                 layout: layout,
                 onDismiss: onDismiss
             )
         )
     }
-    
 }
 
-// MARK: - WhatsNewSheetViewModifier
-
-/// A Automatic WhatsNew Sheet ViewModifier
 private struct AutomaticWhatsNewSheetViewModifier: ViewModifier {
-    
-    // MARK: Properties
-    
-    /// The optional WhatsNew Layout
     let layout: WhatsNew.Layout?
-    
-    /// The optional closure to execute when dismissing the sheet
     let onDismiss: (() -> Void)?
-    
-    /// Bool value if sheet is dismissed
-    @State
-    private var isDismissed: Bool?
-    
-    /// The WhatsNewEnvironment
-    @Environment(\.whatsNew)
-    private var whatsNewEnvironment
-    
-    // MARK: ViewModifier
-    
-    /// Gets the current body of the caller.
-    /// - Parameter content: The Content
-    func body(
-        content: Content
-    ) -> some View {
-        content.sheet(
-            item: .init(
-                get: {
-                    self.isDismissed == true
-                        ? nil
-                        : self.whatsNewEnvironment.whatsNew()
-                },
-                set: {
-                    self.isDismissed = $0 == nil
-                }
-            ),
-            onDismiss: self.onDismiss
-        ) { whatsNew in
-            WhatsNewView(
-                whatsNew: whatsNew,
-                versionStore: self.whatsNewEnvironment.whatsNewVersionStore,
-                layout: self.layout ?? self.whatsNewEnvironment.defaultLayout
-            )
-        }
+
+    @Environment(\.whatsNew) private var whatsNewEnvironment
+    @State private var activeRelease: WhatsNew?
+    @State private var hasCheckedForRelease = false
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: $activeRelease, onDismiss: onDismiss) { release in
+                WhatsNewView(
+                    whatsNew: release,
+                    versionStore: whatsNewEnvironment.whatsNewVersionStore,
+                    layout: layout ?? whatsNewEnvironment.defaultLayout
+                )
+            }
+            .onAppear {
+                guard !hasCheckedForRelease else { return }
+                hasCheckedForRelease = true
+                activeRelease = whatsNewEnvironment.whatsNew()
+            }
     }
-    
 }
