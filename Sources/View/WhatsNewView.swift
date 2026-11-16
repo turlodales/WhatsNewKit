@@ -104,6 +104,7 @@ extension WhatsNewView: View {
             }
             .edgesIgnoringSafeArea(.bottom)
         }
+        .background(self.layout.theme.backgroundColor)
         .sheet(
             item: self.$secondaryActionPresentedView,
             content: { $0.view }
@@ -123,6 +124,7 @@ private extension WhatsNewView {
             whatsNewText: self.whatsNew.title.text
         )
         .font(.largeTitle.bold())
+        .foregroundColor(self.layout.theme.titleColor ?? self.whatsNew.title.foregroundColor)
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -154,17 +156,29 @@ private extension WhatsNewView {
                     whatsNewText: feature.title
                 )
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(.primary)
+                .foregroundColor(self.layout.theme.featureTitleColor)
                 .fixedSize(horizontal: false, vertical: true)
                 Text(
                     whatsNewText: feature.subtitle
                 )
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(self.layout.theme.featureSubtitleColor)
                 .fixedSize(horizontal: false, vertical: true)
             }
             .multilineTextAlignment(.leading)
-        }.accessibilityElement(children: .combine)
+        }
+        .padding(self.layout.theme.featureStyle == .cards ? self.layout.theme.cardPadding : 0)
+        .background(
+            self.layout.theme.featureStyle == .cards
+                ? self.layout.theme.cardBackgroundColor
+                : Color.clear
+        )
+        .cornerRadius(
+            self.layout.theme.featureStyle == .cards
+                ? self.layout.theme.cardCornerRadius
+                : 0
+        )
+        .accessibilityElement(children: .combine)
     }
     
 }
