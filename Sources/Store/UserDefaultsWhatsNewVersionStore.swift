@@ -1,84 +1,92 @@
 import Foundation
 
-// MARK: - UserDefaultsWhatsNewVersionStore
-
-/// A UserDefaults WhatsNewVersionStore
+/// Persists acknowledged releases in UserDefaults.
+///
+/// By default, existing legacy keys (WhatsNewKit.1.0.0) are preserved.
+/// Set a namespace to isolate independent release catalogues within one
+/// UserDefaults suite. Legacy acknowledgement migration is opt-in.
 public struct UserDefaultsWhatsNewVersionStore {
-    
-    // MARK: Properties
-    
-    /// The UserDefaults
     private let userDefaults: UserDefaults
-    
-    // MARK: Initializer
-    
-    /// Creates a new instance of `UserDefaultsWhatsNewVersionStore`
-    /// - Parameters:
-    ///   - userDefaults: The UserDefaults. Default value `.standard`
+    private let namespace: String?
+    private let migrateLegacy: Bool
+
     public init(
-        userDefaults: UserDefaults = .standard
+        userDefaults: UserDefaults = .standard,
+        namespace: String? = nil,
+        migrateLegacy: Bool = false
     ) {
         self.userDefaults = userDefaults
+        self.namespace = namespace.flatMap { $0.isEmpty ? nil : $0 }
+        self.migrateLegacy = migrateLegacy
     }
-    
-}
 
-// MARK: - WriteableWhatsNewVersionStore
+    private var keyPrefix: String {
+        guard let namespace = namespace else {
+            return WhatsNew.Version.keyPrefix + "."
+        }
+        return WhatsNew.Version.keyPrefix + "." + namespace + "."
+    }
+
+    private func key(for version: WhatsNew.Version) -> String {
+        keyPrefix + version.description
+    }
+
+    private func versions(in dictionary: [String: Any], prefix: String) -> [WhatsNew.Version] {
+        dictionary.compactMap { key, value in
+            guard key.hasPrefix(prefix),
+                  let storedVersion = value as? String,
+                  let version = WhatsNew.Version(parsing: storedVersion),
+                  key == prefix + version.description else {
+                return nil
+            }
+            return version
+        }
+    }
+
+    private func migrateIfNeeded() {
+        guard migrateLegacy, namespace != nil else { return }
+
+        // Copy only well-formed legacy version entries. Do not remove them:
+        // existing consumers must keep their acknowledgement history.
+        let dictionary = userDefaults.dictionaryRepresentation()
+        let legacyPrefix = WhatsNew.Version.keyPrefix + "."
+        for version in versions(in: dictionary, prefix: legacyPrefix) {
+            let destination = key(for: version)
+            if userDefaults.object(forKey: destination) == nil {
+                userDefaults.set(version.description, forKey: destination)
+            }
+        }
+    }
+}
 
 extension UserDefaultsWhatsNewVersionStore: WriteableWhatsNewVersionStore {
-    
-    /// Save presented WhatsNew Version
-    /// - Parameter version: The presented WhatsNew Version that should be saved
-    public func save(
-        presentedVersion version: WhatsNew.Version
-    ) {
-        self.userDefaults.set(
-            version.description,
-            forKey: version.key
-        )
+    public func save(presentedVersion version: WhatsNew.Version) {
+        migrateIfNeeded()
+        userDefaults.set(version.description, forKey: key(for: version))
     }
-    
 }
-
-// MARK: - ReadableWhatsNewVersionStore
 
 extension UserDefaultsWhatsNewVersionStore: ReadableWhatsNewVersionStore {
-    
-    /// The WhatsNew Versions that have been already been presented
     public var presentedVersions: [WhatsNew.Version] {
-        self.userDefaults
-            .dictionaryRepresentation()
-            .filter { $0.key.starts(with: WhatsNew.Version.keyPrefix) }
-            .compactMap { $0.value as? String }
-            .map(WhatsNew.Version.init)
+        migrateIfNeeded()
+        return versions(in: userDefaults.dictionaryRepresentation(), prefix: keyPrefix)
+            .sorted()
     }
-    
 }
 
-// MARK: - Remove
-
 public extension UserDefaultsWhatsNewVersionStore {
-    
-    /// Remove presented WhatsNew Version
-    /// - Parameter version: The presented WhatsNew Version that should be removed
-    func remove(
-        presentedVersion version: WhatsNew.Version
-    ) {
-        self.userDefaults
-            .removeObject(forKey: version.key)
+    func remove(presentedVersion version: WhatsNew.Version) {
+        userDefaults.removeObject(forKey: key(for: version))
     }
-    
-}
 
-// MARK: - Remove all
-
-public extension UserDefaultsWhatsNewVersionStore {
-    
-    /// Remove all presented Versions
+    /// Removes only versions belonging to this store's namespace.
     func removeAll() {
-        self.presentedVersions
-            .map(\.key)
-            .forEach(self.userDefaults.removeObject)
+        let dictionary = userDefaults.dictionaryRepresentation()
+        for key in dictionary.keys where key.hasPrefix(keyPrefix) {
+            let suffix = String(key.dropFirst(keyPrefix.count))
+            guard let version = WhatsNew.Version(parsing: suffix),
+                  key == key(for: version) else { continue }
+            userDefaults.removeObject(forKey: key)
+        }
     }
-    
 }
