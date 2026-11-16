@@ -108,12 +108,7 @@ extension WhatsNewView: View {
             item: self.$secondaryActionPresentedView,
             content: { $0.view }
         )
-        .onDisappear {
-            // Save presented WhatsNew Version, if available
-            self.whatsNewVersionStore?.save(
-                presentedVersion: self.whatsNew.version
-            )
-        }
+
     }
     
 }
@@ -217,6 +212,11 @@ private extension WhatsNewView {
                 action: {
                     // Invoke HapticFeedback, if available
                     self.whatsNew.primaryAction.hapticFeedback?()
+                    // Acknowledge only after the user explicitly presses Continue.
+                    // Dismissing the sheet in another way must not mark it as read.
+                    self.whatsNewVersionStore?.save(
+                        presentedVersion: self.whatsNew.version
+                    )
                     // Dismiss
                     self.presentationMode.wrappedValue.dismiss()
                     // Invoke on dismiss, if available
