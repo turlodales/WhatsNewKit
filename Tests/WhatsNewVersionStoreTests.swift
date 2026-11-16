@@ -33,6 +33,10 @@ final class WhatsNewVersionStoreTests: WhatsNewKitTestCase {
             override func dictionaryRepresentation() -> [String: Any] {
                 self.store
             }
+
+            override func removeObject(forKey defaultName: String) {
+                self.store.removeValue(forKey: defaultName)
+            }
         }
         let fakeUserDefaults = FakeUserDefaults()
         let userDefaultsWhatsNewVersionStore = UserDefaultsWhatsNewVersionStore(
