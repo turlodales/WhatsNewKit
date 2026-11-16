@@ -48,6 +48,9 @@ public extension WhatsNew {
         /// The footer visual effect view padding
         public var footerVisualEffectViewPadding: EdgeInsets
         
+        /// Optional styling for backgrounds and feature cards.
+        public var theme: WhatsNew.Theme
+
         // MARK: Initializer
         
         /// Creates a new instance of `WhatsNew.Layout`
@@ -77,7 +80,8 @@ public extension WhatsNew {
             featureVerticalSpacing: CGFloat = 2,
             footerActionSpacing: CGFloat = 15,
             footerPrimaryActionButtonCornerRadius: CGFloat = 14,
-            footerVisualEffectViewPadding: EdgeInsets = .init(top: -10, leading: 0, bottom: 0, trailing: 0)
+            footerVisualEffectViewPadding: EdgeInsets = .init(top: -10, leading: 0, bottom: 0, trailing: 0),
+            theme: WhatsNew.Theme = .classic
         ) {
             self.showsScrollViewIndicators = showsScrollViewIndicators
             self.scrollViewBottomContentInset = scrollViewBottomContentInset
@@ -92,6 +96,7 @@ public extension WhatsNew {
             self.footerActionSpacing = footerActionSpacing
             self.footerPrimaryActionButtonCornerRadius = footerPrimaryActionButtonCornerRadius
             self.footerVisualEffectViewPadding = footerVisualEffectViewPadding
+            self.theme = theme
         }
         
     }
