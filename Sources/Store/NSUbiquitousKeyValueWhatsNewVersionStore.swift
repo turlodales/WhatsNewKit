@@ -1,87 +1,62 @@
 import Foundation
 
-/// The CloudKitWhatsNewVersionStore typealias representing a NSUbiquitousKeyValueWhatsNewVersionStore
+/// Backwards-compatible alias for iCloud key-value version storage.
 public typealias CloudKitWhatsNewVersionStore = NSUbiquitousKeyValueWhatsNewVersionStore
 
-// MARK: - NSUbiquitousKeyValueWhatsNewVersionStore
-
-/// A NSUbiquitousKeyValue WhatsNewVersionStore
+/// Stores acknowledgement state in iCloud key-value storage.
+/// Omit namespace to preserve the existing WhatsNewKit version keys.
 public struct NSUbiquitousKeyValueWhatsNewVersionStore {
-    
-    // MARK: Properties
-    
-    /// The NSUbiquitousKeyValueStore
     private let ubiquitousKeyValueStore: NSUbiquitousKeyValueStore
-    
-    // MARK: Initializer
-    
-    /// Creates a new instance of `NSUbiquitousKeyValueWhatsNewVersionStore`
-    /// - Parameters:
-    ///   - ubiquitousKeyValueStore: The NSUbiquitousKeyValueWhatsNewVersionStore. Default value `.default`
+    private let namespace: String?
+
     public init(
-        ubiquitousKeyValueStore: NSUbiquitousKeyValueStore = .default
+        ubiquitousKeyValueStore: NSUbiquitousKeyValueStore = .default,
+        namespace: String? = nil
     ) {
         self.ubiquitousKeyValueStore = ubiquitousKeyValueStore
+        self.namespace = namespace.flatMap { $0.isEmpty ? nil : $0 }
     }
-    
-}
 
-// MARK: - WriteableWhatsNewVersionStore
+    private var keyPrefix: String {
+        if let namespace = namespace {
+            return WhatsNew.Version.keyPrefix + "." + namespace + "."
+        }
+        return WhatsNew.Version.keyPrefix + "."
+    }
+
+    private func key(for version: WhatsNew.Version) -> String {
+        keyPrefix + version.description
+    }
+
+    private var ownedEntries: [(String, WhatsNew.Version)] {
+        ubiquitousKeyValueStore.dictionaryRepresentation.compactMap { key, value in
+            guard key.hasPrefix(keyPrefix),
+                  let value = value as? String,
+                  let version = WhatsNew.Version(parsing: value),
+                  key == self.key(for: version) else { return nil }
+            return (key, version)
+        }
+    }
+}
 
 extension NSUbiquitousKeyValueWhatsNewVersionStore: WriteableWhatsNewVersionStore {
-    
-    /// Save presented WhatsNew Version
-    /// - Parameter version: The presented WhatsNew Version that should be saved
-    public func save(
-        presentedVersion version: WhatsNew.Version
-    ) {
-        self.ubiquitousKeyValueStore.set(
-            version.description,
-            forKey: version.key
-        )
+    public func save(presentedVersion version: WhatsNew.Version) {
+        ubiquitousKeyValueStore.set(version.description, forKey: key(for: version))
     }
-    
 }
-
-// MARK: - ReadableWhatsNewVersionStore
 
 extension NSUbiquitousKeyValueWhatsNewVersionStore: ReadableWhatsNewVersionStore {
-    
-    /// The WhatsNew Versions that have been already been presented
     public var presentedVersions: [WhatsNew.Version] {
-        self.ubiquitousKeyValueStore
-            .dictionaryRepresentation
-            .filter { $0.key.starts(with: WhatsNew.Version.keyPrefix) }
-            .compactMap { $0.value as? String }
-            .map(WhatsNew.Version.init)
+        ownedEntries.map { $0.1 }.sorted()
     }
-    
 }
 
-// MARK: - Remove
-
 public extension NSUbiquitousKeyValueWhatsNewVersionStore {
-    
-    /// Remove presented WhatsNew Version
-    /// - Parameter version: The presented WhatsNew Version that should be removed
-    func remove(
-        presentedVersion version: WhatsNew.Version
-    ) {
-        self.ubiquitousKeyValueStore
-            .removeObject(forKey: version.key)
+    func remove(presentedVersion version: WhatsNew.Version) {
+        ubiquitousKeyValueStore.removeObject(forKey: key(for: version))
     }
-    
-}
 
-// MARK: - Remove all
-
-public extension NSUbiquitousKeyValueWhatsNewVersionStore {
-    
-    /// Remove all presented Versions
     func removeAll() {
-        self.presentedVersions
-            .map(\.key)
-            .forEach(self.ubiquitousKeyValueStore.removeObject)
+        ownedEntries.forEach { ubiquitousKeyValueStore.removeObject(forKey: $0.0) }
     }
-    
 }
