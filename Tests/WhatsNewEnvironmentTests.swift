@@ -100,4 +100,58 @@ final class WhatsNewEnvironmentTests: WhatsNewKitTestCase {
         )
     }
     
+    
+    func testSkippedMonthlyUpdatesShowsLatestEligibleRelease() {
+        let store = InMemoryWhatsNewVersionStore()
+        store.save(presentedVersion: "2026.09")
+        let environment = WhatsNewEnvironment(
+            currentVersion: "2027.01",
+            versionStore: store,
+            whatsNewCollection: [
+                makeWhatsNew(from: "2027.02"),
+                makeWhatsNew(from: "2026.11"),
+                makeWhatsNew(from: "2027.01"),
+                makeWhatsNew(from: "2026.09")
+            ]
+        )
+        XCTAssertEqual(environment.whatsNew()?.version, "2027.01")
+    }
+
+    func testAcknowledgedLatestDoesNotShowOlderRelease() {
+        let store = InMemoryWhatsNewVersionStore()
+        store.save(presentedVersion: "2027.01")
+        let environment = WhatsNewEnvironment(
+            currentVersion: "2027.01",
+            versionStore: store,
+            whatsNewCollection: [
+                makeWhatsNew(from: "2026.11"),
+                makeWhatsNew(from: "2027.01")
+            ]
+        )
+        XCTAssertNil(environment.whatsNew())
+    }
+
+    func testFutureReleasesAreNotDisplayed() {
+        let environment = WhatsNewEnvironment(
+            currentVersion: "2026.11",
+            versionStore: InMemoryWhatsNewVersionStore(),
+            whatsNewCollection: [
+                makeWhatsNew(from: "2027.01"),
+                makeWhatsNew(from: "2026.10")
+            ]
+        )
+        XCTAssertEqual(environment.whatsNew()?.version, "2026.10")
+    }
+
+    func testNoEligibleRelease() {
+        let environment = WhatsNewEnvironment(
+            currentVersion: "2026.11",
+            versionStore: InMemoryWhatsNewVersionStore(),
+            whatsNewCollection: [
+                makeWhatsNew(from: "2027.01")
+            ]
+        )
+        XCTAssertNil(environment.whatsNew())
+    }
+
 }
