@@ -81,34 +81,22 @@ open class WhatsNewEnvironment {
     }
     
     // MARK: WhatsNew
-    
-    /// Retrieve a WhatsNew that should be presented to the user, if available.
+
+    /// Returns the latest eligible release up to the installed app version.
+    /// Only that release is offered; acknowledged newer releases never
+    /// cause an older announcement to be displayed again.
     open func whatsNew() -> WhatsNew? {
-        // Retrieve presented WhatsNew Versions from WhatsNewVersionStore
-        let presentedWhatsNewVersions = self.whatsNewVersionStore.presentedVersions
-        // Verify the current Version has not been presented
-        guard !presentedWhatsNewVersions.contains(self.currentVersion) else {
-            // Otherwise WhatsNew has already been presented for the current version
+        guard let latestRelease = whatsNewCollection
+            .filter({ $0.version <= currentVersion })
+            .max(by: { $0.version < $1.version }) else {
             return nil
         }
-        // Check if a WhatsNew is available for the current Version
-        if let whatsNew = self.whatsNewCollection.first(where: { $0.version == self.currentVersion }) {
-            // Return WhatsNew for the current Version
-            return whatsNew
-        }
-        // Otherwise initialize current minor release Version
-        let currentMinorVersion = WhatsNew.Version(
-            major: self.currentVersion.major,
-            minor: self.currentVersion.minor,
-            patch: 0
-        )
-        // Verify the current minor release Version has not been presented
-        guard !presentedWhatsNewVersions.contains(currentMinorVersion) else {
-            // Otherwise WhatsNew for current minor release Version has already been preseted
+
+        guard !whatsNewVersionStore.hasPresented(latestRelease.version) else {
             return nil
         }
-        // Return WhatsNew for current minor release Version, if available
-        return self.whatsNewCollection.first { $0.version == currentMinorVersion }
+
+        return latestRelease
     }
-    
+
 }
