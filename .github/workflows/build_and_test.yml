@@ -3,32 +3,48 @@ name: Build and Test
 on:
   workflow_dispatch:
   push:
+    branches:
+      - develop
     paths:
+      - "Package.swift"
       - "Sources/**"
       - "Tests/**"
-      - "!Sources/Documentation.docc/**"
+      - ".github/workflows/build_and_test.yml"
   pull_request:
     paths:
+      - "Package.swift"
       - "Sources/**"
       - "Tests/**"
-      - "!Sources/Documentation.docc/**"
+      - ".github/workflows/build_and_test.yml"
+
+permissions:
+  contents: read
 
 jobs:
-  iOS:
-    name: Build and test on iOS
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v3
-      - name: Build
-        run: xcodebuild build-for-testing -scheme WhatsNewKit -destination 'platform=iOS Simulator,name=iPhone 14'
-      - name: Test
-        run: xcodebuild test-without-building -scheme WhatsNewKit -destination 'platform=iOS Simulator,name=iPhone 14'
   macOS:
-    name: Build and test on macOS
-    runs-on: macos-14
+    name: macOS package tests
+    runs-on: macos-15
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Swift toolchain
+        run: swift --version
       - name: Build
-        run: swift build -v
+        run: swift build
       - name: Test
-        run: swift test -v
+        run: swift test
+
+  iOS:
+    name: iOS simulator tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode version and simulators
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available
+      - name: Build and test
+        run: |
+          xcodebuild test \
+            -scheme WhatsNewKit \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            CODE_SIGNING_ALLOWED=NO
